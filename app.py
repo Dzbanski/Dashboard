@@ -1,6 +1,9 @@
 import pandas as pd
+
 import dash
+import dash_auth
 from dash import dcc, html, Input, Output
+
 import plotly.graph_objects as go
 import datetime as dt
 import os
@@ -14,7 +17,6 @@ class db:
         BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
         self.transactions = self.transaction_init()
-
         self.cc = pd.read_csv(os.path.join(BASE_DIR, 'db', 'country_codes.csv'), index_col=0)
         self.customers = pd.read_csv(os.path.join(BASE_DIR, 'db', 'customers.csv'), index_col=0)
         self.prod_info = pd.read_csv(os.path.join(BASE_DIR, 'db', 'prod_cat_info.csv'))
@@ -52,19 +54,17 @@ class db:
 
         self.merged = df
 
-
-
 df = db()
 df.merge()
 
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 
-app = dash.Dash(
-    __name__,
-    external_stylesheets=external_stylesheets,
-    suppress_callback_exceptions=True
-)
+USERNAME_PASSWORD = [['user','pass']]
+
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
+
+auth = dash_auth.BasicAuth(app,USERNAME_PASSWORD)
 
 app.layout = html.Div([html.Div([dcc.Tabs(id='tabs',value='tab-1',children=[
                             dcc.Tab(label='Sprzedaż globalna',value='tab-1'),
