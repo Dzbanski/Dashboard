@@ -1,5 +1,4 @@
-from dash import dcc, html, dash
-import plotly.graph_objects as go
+from dash import dcc, html
 
 def render_tab(df):
 
