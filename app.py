@@ -1,65 +1,17 @@
 import pandas as pd
-
 import dash
 import dash_auth
 from dash import dcc, html, Input, Output
-
 import plotly.graph_objects as go
-import datetime as dt
-import os
-
+from db import db
 import tab1
 import tab2
 import tab3
 
-class db:
-    def __init__(self):
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-        self.transactions = self.transaction_init()
-        self.cc = pd.read_csv(os.path.join(BASE_DIR, 'db', 'country_codes.csv'), index_col=0)
-        self.customers = pd.read_csv(os.path.join(BASE_DIR, 'db', 'customers.csv'), index_col=0)
-        self.prod_info = pd.read_csv(os.path.join(BASE_DIR, 'db', 'prod_cat_info.csv'))
-
-    def transaction_init(self):
-        dfs = []
-
-        BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-        src = os.path.join(BASE_DIR, 'db', 'transactions')
-
-        for filename in os.listdir(src):
-            dfs.append(pd.read_csv(os.path.join(src, filename), index_col=0))
-
-        transactions = pd.concat(dfs)
-
-        def convert_dates(x):
-            try:
-                return dt.datetime.strptime(x, '%d-%m-%Y')
-            except:
-                return dt.datetime.strptime(x, '%d/%m/%Y')
-
-        transactions['tran_date'] = transactions['tran_date'].apply(convert_dates)
-
-        return transactions
-
-    def merge(self):
-        df = self.transactions.join(self.prod_info.drop_duplicates(subset=['prod_cat_code'])
-        .set_index('prod_cat_code')['prod_cat'],on='prod_cat_code',how='left')
-
-        df = df.join(self.prod_info.drop_duplicates(subset=['prod_sub_cat_code'])
-        .set_index('prod_sub_cat_code')['prod_subcat'],on='prod_subcat_code',how='left')
-
-        df = df.join(self.customers.join(self.cc,on='country_code')
-        .set_index('customer_Id'),on='cust_id')
-
-        self.merged = df
-
 df = db()
 df.merge()
 
-
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-
 USERNAME_PASSWORD = [['user','pass']]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets, suppress_callback_exceptions=True)
@@ -91,7 +43,7 @@ def render_content(tab):
 
 def tab1_bar_sales(start_date,end_date):
 
-    truncated = df.merged[(df.merged['tran_date']>=start_date)&(df.merged['tran_date']<=end_date)]
+    truncated = df.merged_df(start_date, end_date)
     grouped = truncated[truncated['total_amt']>0].groupby([pd.Grouper(key='tran_date',freq='M'),'Store_type'])['total_amt'].sum().round(2).unstack()
 
     traces = []
@@ -108,7 +60,7 @@ def tab1_bar_sales(start_date,end_date):
             [Input('sales-range','start_date'),Input('sales-range','end_date')])
 def tab1_choropleth_sales(start_date,end_date):
 
-    truncated = df.merged[(df.merged['tran_date']>=start_date)&(df.merged['tran_date']<=end_date)]
+    truncated = df.merged_df(start_date, end_date)
     grouped = truncated[truncated['total_amt']>0].groupby('country')['total_amt'].sum().round(2)
 
     trace0 = go.Choropleth(colorscale='Viridis',reversescale=True,
@@ -134,20 +86,7 @@ def tab2_barh_prod_subcat(chosen_cat):
     fig = go.Figure(data=data,layout=go.Layout(barmode='stack',margin={'t':20,}))
     return fig
 
-# Jedna funkcja do 2 callbackow
-def merged_df(start_date, end_date):
 
-    start_date = pd.to_datetime(start_date)
-    end_date = pd.to_datetime(end_date)
-
-    dff = df.merged[
-        (df.merged["tran_date"] >= start_date) &
-        (df.merged["tran_date"] <= end_date)
-    ].copy()
-
-    dff = dff[dff["total_amt"] > 0]
-
-    return dff
 
 # tab3 callbacks
 @app.callback(Output("weekday-storetype", "figure"),
@@ -156,7 +95,7 @@ def merged_df(start_date, end_date):
 
 def weekday_sales(start_date, end_date):
 
-    dff = merged_df(start_date, end_date)
+    dff = df.merged_df(start_date, end_date)
 
     dff["weekday"] = dff["tran_date"].dt.day_name()
 
@@ -186,7 +125,7 @@ def weekday_sales(start_date, end_date):
                Input("sales-range", "end_date")])
 def customers_profile(start_date, end_date):
 
-    dff = merged_df(start_date, end_date)
+    dff = df.merged_df(start_date, end_date)
 
     dff["DOB"] = pd.to_datetime(dff["DOB"], errors="coerce")
     dff["age"] = (dff["tran_date"] - dff["DOB"]).dt.days / 365
