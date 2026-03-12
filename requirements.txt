@@ -2,4 +2,4 @@ dash==4.0.0
 dash-auth==2.3.0
 pandas==2.3.3
 plotly==6.3.0
-numpy==2.3.5ls
+numpy==2.3.5
